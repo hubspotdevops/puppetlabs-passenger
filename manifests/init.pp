@@ -46,17 +46,21 @@ class passenger (
   $gem_binary_path        = $passenger::params::gem_binary_path,
   $mod_passenger_location = $passenger::params::mod_passenger_location,
   $passenger_provider     = $passenger::params::passenger_provider,
-  $passenger_package      = $passenger::params::passenger_package
+  $passenger_package      = $passenger::params::passenger_package,
+  $compile_passenger      = true 
 ) inherits passenger::params {
 
   include apache
-  require apache::mod::dev
 
   case $::osfamily {
     'debian': {
+
+      if $compile_passenger { 
+        Exec['compile-passenger'] <- Package[$passenger::params::libruby, 'libcurl4-openssl-dev']
+      }
+
       package { [$passenger::params::libruby, 'libcurl4-openssl-dev']:
         ensure => present,
-        before => Exec['compile-passenger'],
       }
 
       file { '/etc/apache2/mods-available/passenger.load':
@@ -94,9 +98,13 @@ class passenger (
       }
     }
     'redhat': {
-      package { 'libcurl-devel':
+      
+      if $compile_passenger {  
+        Exec['compile-passenger'] <- Package['libcurl-devel', 'zlib-devel', 'openssl-devel', 'gcc-c++']
+      }
+
+      package { ['libcurl-devel', 'zlib-devel', 'openssl-devel', 'gcc-c++']:
         ensure => present,
-        before => Exec['compile-passenger'],
       }
 
       file { '/etc/httpd/conf.d/passenger.conf':
@@ -118,11 +126,14 @@ class passenger (
     provider => $passenger_provider,
   }
 
-  exec {'compile-passenger':
-    path      => [ $gem_binary_path, '/usr/bin', '/bin', '/usr/local/bin' ],
-    command   => 'passenger-install-apache2-module -a',
-    logoutput => on_failure,
-    creates   => $mod_passenger_location,
-    require   => Package['passenger'],
+  if $compile_passenger {
+    require apache::mod::dev
+    exec {'compile-passenger':
+      path      => [ $gem_binary_path, '/usr/bin', '/bin', '/usr/local/bin' ],
+      command   => 'passenger-install-apache2-module -a',
+      logoutput => on_failure,
+      creates   => $mod_passenger_location,
+      require   => Package['passenger'],
+    }
   }
 }
