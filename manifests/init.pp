@@ -99,5 +99,4 @@ class passenger (
   Class['passenger::config'] ->
   Anchor['passenger::end']
 
-
 }
