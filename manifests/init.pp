@@ -7,11 +7,17 @@
 #   [*passenger_version*]
 #     The Version of Passenger to be installed
 #
+#   [*passenger_ruby*]
+#     The path to ruby on your system
+#
 #   [*gem_path*]
 #     The path to rubygems on your system
 #
 #   [*gem_binary_path*]
 #     Path to Rubygems binaries on your system
+#
+#   [*passenger_root*]
+#     The passenger gem root directory
 #
 #   [*mod_passenger_location*]
 #     Path to Passenger's mod_passenger.so file
@@ -29,6 +35,7 @@
 #    passenger_ruby         => '/usr/bin/ruby'
 #    gem_path               => '/var/lib/gems/1.8/gems',
 #    gem_binary_path        => '/var/lib/gems/1.8/bin',
+#    passenger_root         => '/var/lib/gems/1.8/gems/passenger-3.0.9'
 #    mod_passenger_location => '/var/lib/gems/1.8/gems/passenger-3.0.9/ext/apache2/mod_passenger.so',
 #    passenger_provider     => 'gem',
 #    passenger_package      => 'passenger',
@@ -40,100 +47,56 @@
 #   - apache::dev
 #
 class passenger (
-  $passenger_version      = $passenger::params::passenger_version,
-  $passenger_ruby         = $passenger::params::passenger_ruby,
-  $gem_path               = $passenger::params::gem_path,
   $gem_binary_path        = $passenger::params::gem_binary_path,
+  $gem_path               = $passenger::params::gem_path,
   $mod_passenger_location = $passenger::params::mod_passenger_location,
-  $passenger_provider     = $passenger::params::passenger_provider,
+  $package_name           = $passenger::params::package_name,
+  $package_ensure         = $passenger::params::package_ensure,
+  $package_provider       = $passenger::params::package_provider,
   $passenger_package      = $passenger::params::passenger_package,
-  $compile_passenger      = true 
+  $passenger_provider     = $passenger::params::passenger_provider,
+  $passenger_root         = $passenger::params::passenger_root,
+  $passenger_ruby         = $passenger::params::passenger_ruby,
+  $passenger_version      = $passenger::params::passenger_version,
+  $compile_passenger      = $passenger::params::compile_passenger
 ) inherits passenger::params {
 
-  include apache
+  $package_dependencies = $passenger::params::package_dependencies
 
-  case $::osfamily {
-    'debian': {
+  include '::apache'
+  include '::apache::dev'
 
-      if $compile_passenger { 
-        Exec['compile-passenger'] <- Package[$passenger::params::libruby, 'libcurl4-openssl-dev']
-      }
-
-      package { [$passenger::params::libruby, 'libcurl4-openssl-dev']:
-        ensure => present,
-      }
-
-      file { '/etc/apache2/mods-available/passenger.load':
-        ensure  => present,
-        content => template('passenger/passenger-load.erb'),
-        owner   => '0',
-        group   => '0',
-        mode    => '0644',
-      }
-
-      file { '/etc/apache2/mods-available/passenger.conf':
-        ensure  => present,
-        content => template('passenger/passenger-enabled.erb'),
-        owner   => '0',
-        group   => '0',
-        mode    => '0644',
-      }
-
-      file { '/etc/apache2/mods-enabled/passenger.load':
-        ensure  => 'link',
-        target  => '/etc/apache2/mods-available/passenger.load',
-        owner   => '0',
-        group   => '0',
-        mode    => '0777',
-        require => File['/etc/apache2/mods-available/passenger.load'],
-      }
-
-      file { '/etc/apache2/mods-enabled/passenger.conf':
-        ensure  => 'link',
-        target  => '/etc/apache2/mods-available/passenger.conf',
-        owner   => '0',
-        group   => '0',
-        mode    => '0777',
-        require => File['/etc/apache2/mods-available/passenger.conf'],
-      }
-    }
-    'redhat': {
-      
-      if $compile_passenger {  
-        Exec['compile-passenger'] <- Package['libcurl-devel', 'zlib-devel', 'openssl-devel', 'gcc-c++']
-      }
-
-      package { ['libcurl-devel', 'zlib-devel', 'openssl-devel', 'gcc-c++']:
-        ensure => present,
-      }
-
-      file { '/etc/httpd/conf.d/passenger.conf':
-        ensure  => present,
-        content => template('passenger/passenger-conf.erb'),
-        owner   => '0',
-        group   => '0',
-        mode    => '0644',
-      }
-    }
-    default:{
-      fail("Operating system ${::operatingsystem} is not supported with the Passenger module")
-    }
+  class { '::passenger::install':
+    package_name         => $package_name,
+    package_ensure       => $package_ensure,
+    package_provider     => $package_provider,
+    package_dependencies => $package_dependencies
   }
-
-  package {'passenger':
-    name     => $passenger_package,
-    ensure   => $passenger_version,
-    provider => $passenger_provider,
+  class { '::passenger::config':
+    mod_passenger_location => $mod_passenger_location,
+    passenger_root         => $passenger_root,
+    passenger_ruby         => $passenger_ruby,
+    passenger_version      => $passenger_version,
   }
 
   if $compile_passenger {
-    require apache::mod::dev
-    exec {'compile-passenger':
-      path      => [ $gem_binary_path, '/usr/bin', '/bin', '/usr/local/bin' ],
-      command   => 'passenger-install-apache2-module -a',
-      logoutput => on_failure,
-      creates   => $mod_passenger_location,
-      require   => Package['passenger'],
+    class { '::passenger::compile':
+      gem_binary_path        => $gem_binary_path,
+      mod_passenger_location => $mod_passenger_location
     }
+    Class['passenger::install'] ->
+    Class['passenger::compile'] ->
+    Class['passenger::config']
   }
+
+  anchor { 'passenger::begin': }
+  anchor { 'passenger::end': }
+
+  #projects.puppetlabs.com - bug - #8040: Anchoring pattern
+  Anchor['passenger::begin'] ->
+  Class['apache::dev'] ->
+  Class['passenger::install'] ->
+  Class['passenger::config'] ->
+  Anchor['passenger::end']
+
 }
