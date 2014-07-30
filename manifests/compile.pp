@@ -7,6 +7,7 @@ class passenger::compile (
     path      => [ $gem_binary_path, '/usr/bin', '/bin', '/usr/local/bin' ],
     command   => 'passenger-install-apache2-module -a',
     logoutput => on_failure,
+    timeout   => 900,
     creates   => $mod_passenger_location,
   }
 
