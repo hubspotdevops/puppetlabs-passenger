@@ -4,7 +4,7 @@ PassengerRuby <%= @passenger_ruby %>
 
 # you probably want to tune these settings
 PassengerHighPerformance on
-PassengerMaxPoolSize 12
+PassengerMaxPoolSize <%= @passenger_poolsize %>
 PassengerPoolIdleTime 1500
 # PassengerMaxRequests 1000
 PassengerStatThrottleRate 120
