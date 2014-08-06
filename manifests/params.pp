@@ -17,6 +17,7 @@ class passenger::params {
   $package_provider   = 'gem'
   $passenger_provider = 'gem'
   $compile_passenger  = false
+  $passenger_poolsize = 12
 
   if versioncmp ($passenger_version, '4.0.0') > 0 {
     $builddir     = 'buildout'
