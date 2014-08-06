@@ -22,6 +22,9 @@
 #   [*mod_passenger_location*]
 #     Path to Passenger's mod_passenger.so file
 #
+#   [*passenger_poolsize*]
+#     Should be 1.5 * CPU cores
+#
 #   [*passenger_provider*]
 #     The package provider to use for the system
 #
@@ -54,6 +57,7 @@ class passenger (
   $package_ensure         = $passenger::params::package_ensure,
   $package_provider       = $passenger::params::package_provider,
   $passenger_package      = $passenger::params::passenger_package,
+  $passenger_poolsize     = $passenger::params::passenger_poolsize,
   $passenger_provider     = $passenger::params::passenger_provider,
   $passenger_root         = $passenger::params::passenger_root,
   $passenger_ruby         = $passenger::params::passenger_ruby,
